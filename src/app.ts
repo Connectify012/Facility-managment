@@ -2,6 +2,7 @@ import compression from 'compression';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cors from 'cors';
 import { config } from './config';
 import { errorHandler, handleUncaughtException, handleUnhandledRejection } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
@@ -73,7 +74,7 @@ const corsOptions = {
   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
-// app.use(cors(corsOptions));
+app.use(cors(corsOptions));
 
 // Compression middleware
 app.use(compression());
