@@ -74,7 +74,7 @@ app.use(helmet({
 //   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 // };
 
-app.use(cors('*'));
+app.use(cors());
 
 // Compression middleware
 app.use(compression());
