@@ -74,7 +74,7 @@ const corsOptions = {
   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
-app.use(cors(corsOptions));
+app.use(cors('*'));
 
 // Compression middleware
 app.use(compression());
