@@ -26,11 +26,11 @@ const options = {
     ],
     servers: [
       {
-        url: 'http://localhost:3000',
+        url: 'http://localhost:3001',
         description: 'Development server',
       },
       {
-        url: 'https://api.facility.com',
+        url: 'https://facility-management.onrender.com',
         description: 'Production server',
       },
     ],

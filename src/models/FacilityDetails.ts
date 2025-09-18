@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { Document, model, Schema, Types } from 'mongoose';
 
 export interface IFacilityDetails extends Document {
@@ -10,11 +11,15 @@ export interface IFacilityDetails extends Document {
   position: string;
   contactNo: string;
   email?: string;
+  password?: string;
   facilityType: string;
   additionalInfo?: any;
   settings?: any;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Method to compare password
+  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const facilityDetailsSchema = new Schema<IFacilityDetails>({
@@ -75,6 +80,10 @@ const facilityDetailsSchema = new Schema<IFacilityDetails>({
       message: 'Please provide a valid email address'
     }
   },
+  password: {
+    type: String,
+    default: 'defaultpassword'
+  },
   facilityType: {
     type: String,
     required: true
@@ -113,5 +122,31 @@ facilityDetailsSchema.index({
   location: 'text',
   clientName: 'text'
 });
+
+// Pre-save hook to set password same as email and hash it
+facilityDetailsSchema.pre('save', async function(next) {
+  try {
+    // Set password to email if not already set
+    if (this.email && (!this.password || this.password === 'defaultpassword')) {
+      this.password = this.email;
+    }
+    
+    // Hash the password if it's been modified
+    if (this.isModified('password') && this.password) {
+      const saltRounds = 12;
+      this.password = await bcrypt.hash(this.password, saltRounds);
+    }
+    
+    next();
+  } catch (error) {
+    next(error as Error);
+  }
+});
+
+// Method to compare password
+facilityDetailsSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+  if (!this.password) return false;
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 export const FacilityDetails = model<IFacilityDetails>('FacilityDetails', facilityDetailsSchema, 'facilityDetails');

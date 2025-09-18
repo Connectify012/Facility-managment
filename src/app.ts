@@ -1,8 +1,8 @@
 import compression from 'compression';
+import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import cors from 'cors';
 import { config } from './config';
 import { errorHandler, handleUncaughtException, handleUnhandledRejection } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.routes';
 import facilityDetailsRoutes from './routes/facilityDetails.routes';
 import iotServiceManagementRoutes from './routes/iotServiceManagement.routes';
 import serviceManagementRoutes from './routes/serviceManagement.routes';
+import serviceProviderRoutes from './routes/serviceProvider.routes';
 import userRoutes from './routes/user.routes';
 
 import { setupSwagger } from './utils/swagger';
@@ -111,6 +112,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/facilities', facilityDetailsRoutes);
 app.use('/api/service-management', serviceManagementRoutes);
+app.use('/api/service-providers', serviceProviderRoutes);
 app.use('/api/iot-service-management', iotServiceManagementRoutes);
 app.use('/api/users', userRoutes);
 
