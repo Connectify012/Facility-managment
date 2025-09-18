@@ -7,9 +7,11 @@ import { errorHandler, handleUncaughtException, handleUnhandledRejection } from 
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { generalLimiter } from './middleware/rateLimiter';
 // Import route files
+import authRoutes from './routes/auth.routes';
 import facilityDetailsRoutes from './routes/facilityDetails.routes';
 import iotServiceManagementRoutes from './routes/iotServiceManagement.routes';
 import serviceManagementRoutes from './routes/serviceManagement.routes';
+import userRoutes from './routes/user.routes';
 
 import { setupSwagger } from './utils/swagger';
 
@@ -105,9 +107,11 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/facilities', facilityDetailsRoutes);
 app.use('/api/service-management', serviceManagementRoutes);
 app.use('/api/iot-service-management', iotServiceManagementRoutes);
+app.use('/api/users', userRoutes);
 
 // Error handling
 app.use(notFoundHandler);

@@ -1,4 +1,29 @@
+import { NextFunction, Request, Response } from 'express';
+import Joi from 'joi';
 import { Types } from 'mongoose';
+import { AppError } from '../middleware/errorHandler';
+
+/**
+ * Middleware to validate request body, query, or params using Joi schema
+ * @param schema - Joi validation schema
+ * @param property - Request property to validate ('body', 'query', 'params')
+ * @returns Express middleware function
+ */
+export const validateRequest = (
+  schema: Joi.ObjectSchema,
+  property: 'body' | 'query' | 'params' = 'body'
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const { error } = schema.validate(req[property], { abortEarly: false });
+    
+    if (error) {
+      const errorMessage = error.details.map(detail => detail.message).join('; ');
+      return next(new AppError(`Validation error: ${errorMessage}`, 400));
+    }
+    
+    next();
+  };
+};
 
 /**
  * Validate if a string is a valid MongoDB ObjectId

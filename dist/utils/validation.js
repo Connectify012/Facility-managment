@@ -1,7 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateArrayLength = exports.validateRange = exports.validateDate = exports.validateSort = exports.sanitizeString = exports.validateUrl = exports.validatePassword = exports.validatePagination = exports.validatePhoneNumber = exports.validateEmail = exports.validateName = exports.validateObjectId = void 0;
+exports.validateArrayLength = exports.validateRange = exports.validateDate = exports.validateSort = exports.sanitizeString = exports.validateUrl = exports.validatePassword = exports.validatePagination = exports.validatePhoneNumber = exports.validateEmail = exports.validateName = exports.validateObjectId = exports.validateRequest = void 0;
 const mongoose_1 = require("mongoose");
+const errorHandler_1 = require("../middleware/errorHandler");
+/**
+ * Middleware to validate request body, query, or params using Joi schema
+ * @param schema - Joi validation schema
+ * @param property - Request property to validate ('body', 'query', 'params')
+ * @returns Express middleware function
+ */
+const validateRequest = (schema, property = 'body') => {
+    return (req, res, next) => {
+        const { error } = schema.validate(req[property], { abortEarly: false });
+        if (error) {
+            const errorMessage = error.details.map(detail => detail.message).join('; ');
+            return next(new errorHandler_1.AppError(`Validation error: ${errorMessage}`, 400));
+        }
+        next();
+    };
+};
+exports.validateRequest = validateRequest;
 /**
  * Validate if a string is a valid MongoDB ObjectId
  * @param id - The ID to validate

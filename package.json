@@ -13,7 +13,9 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create-superadmin": "ts-node src/scripts/createSuperAdmin.ts",
+    "create-superadmin:prod": "node dist/scripts/createSuperAdmin.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

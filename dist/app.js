@@ -13,9 +13,11 @@ const errorHandler_1 = require("./middleware/errorHandler");
 const notFoundHandler_1 = require("./middleware/notFoundHandler");
 const rateLimiter_1 = require("./middleware/rateLimiter");
 // Import route files
+const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const facilityDetails_routes_1 = __importDefault(require("./routes/facilityDetails.routes"));
 const iotServiceManagement_routes_1 = __importDefault(require("./routes/iotServiceManagement.routes"));
 const serviceManagement_routes_1 = __importDefault(require("./routes/serviceManagement.routes"));
+const user_routes_1 = __importDefault(require("./routes/user.routes"));
 const swagger_1 = require("./utils/swagger");
 // Handle uncaught exceptions and unhandled rejections
 (0, errorHandler_1.handleUncaughtException)();
@@ -98,9 +100,11 @@ app.get('/health', (req, res) => {
     });
 });
 // Routes
+app.use('/api/auth', auth_routes_1.default);
 app.use('/api/facilities', facilityDetails_routes_1.default);
 app.use('/api/service-management', serviceManagement_routes_1.default);
 app.use('/api/iot-service-management', iotServiceManagement_routes_1.default);
+app.use('/api/users', user_routes_1.default);
 // Error handling
 app.use(notFoundHandler_1.notFoundHandler);
 app.use(errorHandler_1.errorHandler);
