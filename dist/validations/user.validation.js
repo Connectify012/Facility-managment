@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.roleParamSchema = exports.objectIdParamSchema = exports.getUsersQuerySchema = exports.updatePasswordSchema = exports.updateUserStatusSchema = exports.updateUserRoleSchema = exports.updateUserSchema = exports.createUserSchema = void 0;
+exports.employeeQuerySchema = exports.workScheduleSchema = exports.terminateEmployeeSchema = exports.employeeTypeParamSchema = exports.employmentStatusParamSchema = exports.roleParamSchema = exports.objectIdParamSchema = exports.getUsersQuerySchema = exports.updatePasswordSchema = exports.updateUserStatusSchema = exports.updateUserRoleSchema = exports.updateUserSchema = exports.createUserSchema = void 0;
 const joi_1 = __importDefault(require("joi"));
 const User_1 = require("../models/User");
 // User creation validation schema
@@ -71,10 +71,10 @@ exports.createUserSchema = joi_1.default.object({
         'string.pattern.base': 'Please provide a valid phone number'
     }),
     role: joi_1.default.string()
-        .valid(...Object.values(User_1.UserRole))
+        .valid(...Object.values(User_1.UserRole).filter(role => role !== User_1.UserRole.SUPER_ADMIN && role !== User_1.UserRole.ADMIN))
         .default(User_1.UserRole.USER)
         .messages({
-        'any.only': 'Role must be one of: ' + Object.values(User_1.UserRole).join(', ')
+        'any.only': 'Role must be one of: ' + Object.values(User_1.UserRole).filter(role => role !== User_1.UserRole.SUPER_ADMIN && role !== User_1.UserRole.ADMIN).join(', ')
     }),
     status: joi_1.default.string()
         .valid(...Object.values(User_1.UserStatus))
@@ -90,8 +90,6 @@ exports.createUserSchema = joi_1.default.object({
     }),
     // Profile information
     profile: joi_1.default.object({
-        avatar: joi_1.default.string().uri().optional(),
-        bio: joi_1.default.string().max(500).optional().trim(),
         dateOfBirth: joi_1.default.date().optional(),
         address: joi_1.default.object({
             street: joi_1.default.string().optional().trim(),
@@ -109,7 +107,32 @@ exports.createUserSchema = joi_1.default.object({
         department: joi_1.default.string().optional().trim(),
         jobTitle: joi_1.default.string().optional().trim(),
         employeeId: joi_1.default.string().optional().trim(),
-        hireDate: joi_1.default.date().optional()
+        hireDate: joi_1.default.date().optional(),
+        // Enhanced employee fields
+        employeeType: joi_1.default.string().valid(...Object.values(User_1.EmployeeType)).optional(),
+        employmentStatus: joi_1.default.string().valid(...Object.values(User_1.EmploymentStatus)).optional(),
+        workLocation: joi_1.default.string().valid(...Object.values(User_1.WorkLocation)).optional(),
+        shiftType: joi_1.default.string().valid(...Object.values(User_1.ShiftType)).optional(),
+        probationEndDate: joi_1.default.date().optional(),
+        confirmationDate: joi_1.default.date().optional(),
+        terminationDate: joi_1.default.date().optional(),
+        lastWorkingDay: joi_1.default.date().optional(),
+        noticePeriod: joi_1.default.number().integer().min(0).optional(),
+        // Compensation & Benefits
+        salary: joi_1.default.object({
+            basic: joi_1.default.number().positive().optional(),
+            currency: joi_1.default.string().default('INR'),
+            payFrequency: joi_1.default.string().valid('monthly', 'weekly', 'bi_weekly', 'annual').default('monthly'),
+            effectiveDate: joi_1.default.date().optional()
+        }).optional(),
+        // Work Schedule
+        workSchedule: joi_1.default.object({
+            workingDays: joi_1.default.array().items(joi_1.default.string()).optional(),
+            startTime: joi_1.default.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+            endTime: joi_1.default.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+            breakDuration: joi_1.default.number().integer().min(0).optional(),
+            weeklyHours: joi_1.default.number().min(0).max(168).optional()
+        }).optional(),
     }).optional(),
     // Settings
     settings: joi_1.default.object({
@@ -129,42 +152,11 @@ exports.createUserSchema = joi_1.default.object({
         theme: joi_1.default.string().valid('light', 'dark', 'auto').default('light')
     }).optional(),
     // Facility associations
-    assignedFacilities: joi_1.default.array()
-        .items(joi_1.default.string().pattern(/^[0-9a-fA-F]{24}$/))
-        .optional()
-        .messages({
-        'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
     managedFacilities: joi_1.default.array()
         .items(joi_1.default.string().pattern(/^[0-9a-fA-F]{24}$/))
         .optional()
         .messages({
         'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
-    // Organization data
-    organizationId: joi_1.default.string()
-        .pattern(/^[0-9a-fA-F]{24}$/)
-        .optional()
-        .messages({
-        'string.pattern.base': 'Organization ID must be a valid ObjectId'
-    }),
-    departmentId: joi_1.default.string()
-        .pattern(/^[0-9a-fA-F]{24}$/)
-        .optional()
-        .messages({
-        'string.pattern.base': 'Department ID must be a valid ObjectId'
-    }),
-    managerId: joi_1.default.string()
-        .pattern(/^[0-9a-fA-F]{24}$/)
-        .optional()
-        .messages({
-        'string.pattern.base': 'Manager ID must be a valid ObjectId'
-    }),
-    subordinates: joi_1.default.array()
-        .items(joi_1.default.string().pattern(/^[0-9a-fA-F]{24}$/))
-        .optional()
-        .messages({
-        'string.pattern.base': 'Each subordinate ID must be a valid ObjectId'
     }),
     // Audit fields
     createdBy: joi_1.default.string()
@@ -222,8 +214,6 @@ exports.updateUserSchema = joi_1.default.object({
     }),
     // Profile information (same as create but all optional)
     profile: joi_1.default.object({
-        avatar: joi_1.default.string().uri().allow(''),
-        bio: joi_1.default.string().max(500).trim().allow(''),
         dateOfBirth: joi_1.default.date().allow(null),
         address: joi_1.default.object({
             street: joi_1.default.string().trim().allow(''),
@@ -241,7 +231,32 @@ exports.updateUserSchema = joi_1.default.object({
         department: joi_1.default.string().trim().allow(''),
         jobTitle: joi_1.default.string().trim().allow(''),
         employeeId: joi_1.default.string().trim().allow(''),
-        hireDate: joi_1.default.date().allow(null)
+        hireDate: joi_1.default.date().allow(null),
+        // Enhanced employee fields
+        employeeType: joi_1.default.string().valid(...Object.values(User_1.EmployeeType)),
+        employmentStatus: joi_1.default.string().valid(...Object.values(User_1.EmploymentStatus)),
+        workLocation: joi_1.default.string().valid(...Object.values(User_1.WorkLocation)),
+        shiftType: joi_1.default.string().valid(...Object.values(User_1.ShiftType)),
+        probationEndDate: joi_1.default.date().allow(null),
+        confirmationDate: joi_1.default.date().allow(null),
+        terminationDate: joi_1.default.date().allow(null),
+        lastWorkingDay: joi_1.default.date().allow(null),
+        noticePeriod: joi_1.default.number().integer().min(0),
+        // Compensation & Benefits
+        salary: joi_1.default.object({
+            basic: joi_1.default.number().positive(),
+            currency: joi_1.default.string(),
+            payFrequency: joi_1.default.string().valid('monthly', 'weekly', 'bi_weekly', 'annual'),
+            effectiveDate: joi_1.default.date().allow(null)
+        }),
+        // Work Schedule
+        workSchedule: joi_1.default.object({
+            workingDays: joi_1.default.array().items(joi_1.default.string()),
+            startTime: joi_1.default.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+            endTime: joi_1.default.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+            breakDuration: joi_1.default.number().integer().min(0),
+            weeklyHours: joi_1.default.number().min(0).max(168)
+        }),
     }),
     // Settings
     settings: joi_1.default.object({
@@ -261,39 +276,10 @@ exports.updateUserSchema = joi_1.default.object({
         theme: joi_1.default.string().valid('light', 'dark', 'auto')
     }),
     // Facility associations
-    assignedFacilities: joi_1.default.array()
-        .items(joi_1.default.string().pattern(/^[0-9a-fA-F]{24}$/))
-        .messages({
-        'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
     managedFacilities: joi_1.default.array()
         .items(joi_1.default.string().pattern(/^[0-9a-fA-F]{24}$/))
         .messages({
         'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
-    // Organization data
-    organizationId: joi_1.default.string()
-        .pattern(/^[0-9a-fA-F]{24}$/)
-        .allow(null)
-        .messages({
-        'string.pattern.base': 'Organization ID must be a valid ObjectId'
-    }),
-    departmentId: joi_1.default.string()
-        .pattern(/^[0-9a-fA-F]{24}$/)
-        .allow(null)
-        .messages({
-        'string.pattern.base': 'Department ID must be a valid ObjectId'
-    }),
-    managerId: joi_1.default.string()
-        .pattern(/^[0-9a-fA-F]{24}$/)
-        .allow(null)
-        .messages({
-        'string.pattern.base': 'Manager ID must be a valid ObjectId'
-    }),
-    subordinates: joi_1.default.array()
-        .items(joi_1.default.string().pattern(/^[0-9a-fA-F]{24}$/))
-        .messages({
-        'string.pattern.base': 'Each subordinate ID must be a valid ObjectId'
     }),
     // Audit fields
     updatedBy: joi_1.default.string()
@@ -368,4 +354,100 @@ exports.roleParamSchema = joi_1.default.object({
         'any.only': 'Role must be one of: ' + Object.values(User_1.UserRole).join(', '),
         'any.required': 'Role is required'
     })
+});
+// ===== EMPLOYEE-SPECIFIC VALIDATION SCHEMAS =====
+// Employment status parameter validation schema
+exports.employmentStatusParamSchema = joi_1.default.object({
+    status: joi_1.default.string()
+        .valid(...Object.values(User_1.EmploymentStatus))
+        .required()
+        .messages({
+        'any.only': 'Employment status must be one of: ' + Object.values(User_1.EmploymentStatus).join(', '),
+        'any.required': 'Employment status is required'
+    })
+});
+// Employee type parameter validation schema
+exports.employeeTypeParamSchema = joi_1.default.object({
+    type: joi_1.default.string()
+        .valid(...Object.values(User_1.EmployeeType))
+        .required()
+        .messages({
+        'any.only': 'Employee type must be one of: ' + Object.values(User_1.EmployeeType).join(', '),
+        'any.required': 'Employee type is required'
+    })
+});
+// Employee termination validation schema
+exports.terminateEmployeeSchema = joi_1.default.object({
+    terminationDate: joi_1.default.date()
+        .required()
+        .messages({
+        'any.required': 'Termination date is required'
+    }),
+    lastWorkingDay: joi_1.default.date()
+        .required()
+        .messages({
+        'any.required': 'Last working day is required'
+    }),
+    reason: joi_1.default.string()
+        .optional()
+        .trim()
+        .max(500)
+        .messages({
+        'string.max': 'Reason cannot exceed 500 characters'
+    })
+});
+// Work schedule validation schema
+exports.workScheduleSchema = joi_1.default.object({
+    workSchedule: joi_1.default.object({
+        workingDays: joi_1.default.array()
+            .items(joi_1.default.string().valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'))
+            .min(1)
+            .required()
+            .messages({
+            'array.min': 'At least one working day is required'
+        }),
+        startTime: joi_1.default.string()
+            .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+            .required()
+            .messages({
+            'string.pattern.base': 'Start time must be in HH:MM format',
+            'any.required': 'Start time is required'
+        }),
+        endTime: joi_1.default.string()
+            .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+            .required()
+            .messages({
+            'string.pattern.base': 'End time must be in HH:MM format',
+            'any.required': 'End time is required'
+        }),
+        breakDuration: joi_1.default.number()
+            .integer()
+            .min(0)
+            .max(480)
+            .default(60)
+            .messages({
+            'number.min': 'Break duration cannot be negative',
+            'number.max': 'Break duration cannot exceed 8 hours (480 minutes)'
+        }),
+        weeklyHours: joi_1.default.number()
+            .min(1)
+            .max(168)
+            .required()
+            .messages({
+            'number.min': 'Weekly hours must be at least 1',
+            'number.max': 'Weekly hours cannot exceed 168 (24 hours × 7 days)',
+            'any.required': 'Weekly hours is required'
+        })
+    }).required()
+});
+// Employee query parameters validation schema
+exports.employeeQuerySchema = joi_1.default.object({
+    page: joi_1.default.number().integer().min(1).default(1),
+    limit: joi_1.default.number().integer().min(1).max(100).default(10),
+    employmentStatus: joi_1.default.string().valid(...Object.values(User_1.EmploymentStatus)).optional(),
+    employeeType: joi_1.default.string().valid(...Object.values(User_1.EmployeeType)).optional(),
+    department: joi_1.default.string().optional().trim(),
+    workLocation: joi_1.default.string().valid(...Object.values(User_1.WorkLocation)).optional(),
+    shiftType: joi_1.default.string().valid(...Object.values(User_1.ShiftType)).optional(),
+    search: joi_1.default.string().max(100).optional().trim()
 });

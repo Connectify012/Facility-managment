@@ -9,6 +9,7 @@ export enum UserRole {
   FACILITY_MANAGER = 'facility_manager',
   SUPERVISOR = 'supervisor',
   TECHNICIAN = 'technician',
+  HOUSEKEEPING = 'housekeeping',
   USER = 'user',
   GUEST = 'guest'
 }
@@ -29,6 +30,42 @@ export enum VerificationStatus {
   REJECTED = 'rejected'
 }
 
+// Enum for employee type
+export enum EmployeeType {
+  PERMANENT = 'permanent',
+  CONTRACT = 'contract',
+  INTERN = 'intern',
+  PART_TIME = 'part_time',
+  FREELANCER = 'freelancer',
+  CONSULTANT = 'consultant'
+}
+
+// Enum for employment status
+export enum EmploymentStatus {
+  ACTIVE = 'active',
+  TERMINATED = 'terminated',
+  RESIGNED = 'resigned',
+  RETIRED = 'retired',
+  ON_LEAVE = 'on_leave',
+  PROBATION = 'probation'
+}
+
+// Enum for shift types
+export enum ShiftType {
+  MORNING = 'morning',
+  AFTERNOON = 'afternoon',
+  NIGHT = 'night',
+  FLEXIBLE = 'flexible',
+  ROTATIONAL = 'rotational'
+}
+
+// Enum for work location
+export enum WorkLocation {
+  ON_SITE = 'on_site',
+  REMOTE = 'remote',
+  HYBRID = 'hybrid'
+}
+
 // Interface for user permissions
 export interface IUserPermissions {
   canManageUsers: boolean;
@@ -39,13 +76,22 @@ export interface IUserPermissions {
   canManageSettings: boolean;
   canManageBilling: boolean;
   canAccessAuditLogs: boolean;
+  
+  // Employee management permissions
+  canManageEmployees: boolean;
+  canViewEmployeeReports: boolean;
+  canApproveLeaves: boolean;
+  canManageAttendance: boolean;
+  canManageShifts: boolean;
+  canManagePayroll: boolean;
+  canViewSalaryInfo: boolean;
+  canManageDocuments: boolean;
+  
   customPermissions: string[];
 }
 
 // Interface for user profile
 export interface IUserProfile {
-  avatar?: string;
-  bio?: string;
   dateOfBirth?: Date;
   address?: {
     street?: string;
@@ -64,6 +110,36 @@ export interface IUserProfile {
   jobTitle?: string;
   employeeId?: string;
   hireDate?: Date;
+  
+  // Enhanced employee fields
+  employeeType?: EmployeeType;
+  employmentStatus?: EmploymentStatus;
+  workLocation?: WorkLocation;
+  shiftType?: ShiftType;
+  probationEndDate?: Date;
+  confirmationDate?: Date;
+  terminationDate?: Date;
+  lastWorkingDay?: Date;
+  noticePeriod?: number; // in days
+  
+  // Compensation & Benefits
+  salary?: {
+    basic?: number;
+    currency?: string;
+    payFrequency?: 'monthly' | 'weekly' | 'bi_weekly' | 'annual';
+    effectiveDate?: Date;
+  };
+  
+  // Work Schedule
+  workSchedule?: {
+    workingDays?: string[]; // ['monday', 'tuesday', etc.]
+    startTime?: string; // '09:00'
+    endTime?: string;   // '18:00'
+    breakDuration?: number; // in minutes
+    weeklyHours?: number;
+  };
+  
+
 }
 
 // Interface for user settings
@@ -122,14 +198,7 @@ export interface IUser extends Document {
   security: IUserSecurity;
   
   // Facility associations
-  assignedFacilities: Types.ObjectId[];
   managedFacilities: Types.ObjectId[];
-  
-  // Organization data
-  organizationId?: Types.ObjectId;
-  departmentId?: Types.ObjectId;
-  managerId?: Types.ObjectId;
-  subordinates: Types.ObjectId[];
   
   // Verification tokens
   emailVerificationToken?: string;
@@ -163,6 +232,17 @@ export interface IUser extends Document {
   addSessionToken(token: string, device?: string, ip?: string): Promise<void>;
   removeSessionToken(token: string): Promise<void>;
   clearAllSessions(): Promise<void>;
+  
+  // Employee-specific methods
+  isActiveEmployee(): boolean;
+  isOnProbation(): boolean;
+  getTenureInDays(): number;
+  getEmploymentStatusDisplay(): string;
+  canApproveLeaves(): boolean;
+  canManageEmployees(): boolean;
+  getWorkSchedule(): any;
+  terminateEmployee(terminationDate: Date, lastWorkingDay: Date, reason?: string): Promise<void>;
+  confirmEmployee(): Promise<void>;
 }
 
 // Default permissions based on role
@@ -176,6 +256,17 @@ const getDefaultPermissions = (role: UserRole): IUserPermissions => {
     canManageSettings: false,
     canManageBilling: false,
     canAccessAuditLogs: false,
+    
+    // Employee management permissions
+    canManageEmployees: false,
+    canViewEmployeeReports: false,
+    canApproveLeaves: false,
+    canManageAttendance: false,
+    canManageShifts: false,
+    canManagePayroll: false,
+    canViewSalaryInfo: false,
+    canManageDocuments: false,
+    
     customPermissions: []
   };
 
@@ -190,6 +281,17 @@ const getDefaultPermissions = (role: UserRole): IUserPermissions => {
         canManageSettings: true,
         canManageBilling: true,
         canAccessAuditLogs: true,
+        
+        // Full employee management permissions
+        canManageEmployees: true,
+        canViewEmployeeReports: true,
+        canApproveLeaves: true,
+        canManageAttendance: true,
+        canManageShifts: true,
+        canManagePayroll: true,
+        canViewSalaryInfo: true,
+        canManageDocuments: true,
+        
         customPermissions: ['all']
       };
     
@@ -203,7 +305,17 @@ const getDefaultPermissions = (role: UserRole): IUserPermissions => {
         canViewReports: true,
         canManageSettings: true,
         canManageBilling: true,
-        canAccessAuditLogs: true
+        canAccessAuditLogs: true,
+        
+        // Admin employee management permissions
+        canManageEmployees: true,
+        canViewEmployeeReports: true,
+        canApproveLeaves: true,
+        canManageAttendance: true,
+        canManageShifts: true,
+        canManagePayroll: true,
+        canViewSalaryInfo: true,
+        canManageDocuments: true
       };
     
     case UserRole.FACILITY_MANAGER:
@@ -212,7 +324,16 @@ const getDefaultPermissions = (role: UserRole): IUserPermissions => {
         canManageFacilities: true,
         canManageServices: true,
         canManageIOT: true,
-        canViewReports: true
+        canViewReports: true,
+        
+        // Facility manager employee permissions
+        canManageEmployees: true,
+        canViewEmployeeReports: true,
+        canApproveLeaves: true,
+        canManageAttendance: true,
+        canManageShifts: true,
+        canViewSalaryInfo: false, // No salary access
+        canManageDocuments: true
       };
     
     case UserRole.SUPERVISOR:
@@ -220,20 +341,46 @@ const getDefaultPermissions = (role: UserRole): IUserPermissions => {
         ...basePermissions,
         canManageServices: true,
         canManageIOT: true,
-        canViewReports: true
+        canViewReports: true,
+        
+        // Supervisor employee permissions
+        canManageEmployees: false,
+        canViewEmployeeReports: true,
+        canApproveLeaves: false, // Can't approve leaves
+        canManageAttendance: true,
+        canManageShifts: true,
+        canViewSalaryInfo: false,
+        canManageDocuments: false
       };
     
     case UserRole.TECHNICIAN:
       return {
         ...basePermissions,
         canManageIOT: true,
-        canViewReports: true
+        canViewReports: true,
+        
+        // Technician permissions (minimal)
+        canViewEmployeeReports: false,
+        canManageAttendance: false, // Can only mark their own attendance
+        canManageShifts: false
+      };
+    
+    case UserRole.HOUSEKEEPING:
+      return {
+        ...basePermissions,
+        canViewReports: true,
+        
+        // Housekeeping permissions (minimal)
+        canViewEmployeeReports: false,
+        canManageAttendance: false, // Can only mark their own attendance
+        canManageShifts: false
       };
     
     case UserRole.USER:
       return {
         ...basePermissions,
         canViewReports: true
+        // No employee management permissions for regular users
       };
     
     default:
@@ -325,11 +472,20 @@ const UserSchema = new Schema<IUser>({
     canManageSettings: { type: Boolean, default: false },
     canManageBilling: { type: Boolean, default: false },
     canAccessAuditLogs: { type: Boolean, default: false },
+    
+    // Employee management permissions
+    canManageEmployees: { type: Boolean, default: false },
+    canViewEmployeeReports: { type: Boolean, default: false },
+    canApproveLeaves: { type: Boolean, default: false },
+    canManageAttendance: { type: Boolean, default: false },
+    canManageShifts: { type: Boolean, default: false },
+    canManagePayroll: { type: Boolean, default: false },
+    canViewSalaryInfo: { type: Boolean, default: false },
+    canManageDocuments: { type: Boolean, default: false },
+    
     customPermissions: [{ type: String }]
   },
   profile: {
-    avatar: { type: String },
-    bio: { type: String, maxlength: [500, 'Bio cannot exceed 500 characters'] },
     dateOfBirth: { type: Date },
     address: {
       street: { type: String },
@@ -347,7 +503,56 @@ const UserSchema = new Schema<IUser>({
     department: { type: String },
     jobTitle: { type: String },
     employeeId: { type: String },
-    hireDate: { type: Date }
+    hireDate: { type: Date },
+    
+    // Enhanced employee fields
+    employeeType: { 
+      type: String, 
+      enum: Object.values(EmployeeType),
+      default: EmployeeType.PERMANENT
+    },
+    employmentStatus: { 
+      type: String, 
+      enum: Object.values(EmploymentStatus),
+      default: EmploymentStatus.ACTIVE
+    },
+    workLocation: { 
+      type: String, 
+      enum: Object.values(WorkLocation),
+      default: WorkLocation.ON_SITE
+    },
+    shiftType: { 
+      type: String, 
+      enum: Object.values(ShiftType),
+      default: ShiftType.MORNING
+    },
+    probationEndDate: { type: Date },
+    confirmationDate: { type: Date },
+    terminationDate: { type: Date },
+    lastWorkingDay: { type: Date },
+    noticePeriod: { type: Number, default: 30 }, // in days
+    
+    // Compensation & Benefits
+    salary: {
+      basic: { type: Number },
+      currency: { type: String, default: 'INR' },
+      payFrequency: { 
+        type: String, 
+        enum: ['monthly', 'weekly', 'bi_weekly', 'annual'],
+        default: 'monthly'
+      },
+      effectiveDate: { type: Date }
+    },
+    
+    // Work Schedule
+    workSchedule: {
+      workingDays: [{ type: String }], // ['monday', 'tuesday', etc.]
+      startTime: { type: String, default: '09:00' }, // '09:00'
+      endTime: { type: String, default: '18:00' },   // '18:00'
+      breakDuration: { type: Number, default: 60 }, // in minutes
+      weeklyHours: { type: Number, default: 40 }
+    },
+
   },
   settings: {
     notifications: {
@@ -388,31 +593,9 @@ const UserSchema = new Schema<IUser>({
   },
   
   // Facility associations
-  assignedFacilities: [{ 
-    type: Schema.Types.ObjectId, 
-    ref: 'FacilityDetails' 
-  }],
   managedFacilities: [{ 
     type: Schema.Types.ObjectId, 
     ref: 'FacilityDetails' 
-  }],
-  
-  // Organization data
-  organizationId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Organization' 
-  },
-  departmentId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Department' 
-  },
-  managerId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User' 
-  },
-  subordinates: [{ 
-    type: Schema.Types.ObjectId, 
-    ref: 'User' 
   }],
   
   // Verification tokens
@@ -474,23 +657,32 @@ UserSchema.index({ role: 1 });
 UserSchema.index({ status: 1 });
 UserSchema.index({ verificationStatus: 1 });
 UserSchema.index({ isDeleted: 1 });
-UserSchema.index({ assignedFacilities: 1 });
 UserSchema.index({ managedFacilities: 1 });
-UserSchema.index({ organizationId: 1 });
 UserSchema.index({ createdAt: -1 });
 UserSchema.index({ 'security.lastLoginAt': -1 });
+
+// Employee-specific indexes
+UserSchema.index({ 'profile.employeeId': 1 });
+UserSchema.index({ 'profile.employmentStatus': 1 });
+UserSchema.index({ 'profile.employeeType': 1 });
+UserSchema.index({ 'profile.department': 1 });
+UserSchema.index({ 'profile.hireDate': -1 });
 
 // Text search index
 UserSchema.index({
   firstName: 'text',
   lastName: 'text',
   email: 'text',
-  username: 'text'
+  username: 'text',
+  'profile.employeeId': 'text',
+  'profile.department': 'text',
+  'profile.jobTitle': 'text'
 });
 
 // Compound indexes
 UserSchema.index({ role: 1, status: 1, isDeleted: 1 });
-UserSchema.index({ organizationId: 1, role: 1, isDeleted: 1 });
+UserSchema.index({ 'profile.employmentStatus': 1, isDeleted: 1 });
+UserSchema.index({ 'profile.department': 1, 'profile.employmentStatus': 1 });
 
 // Pre-save middleware to hash password and set default permissions
 UserSchema.pre('save', async function(next) {
@@ -604,6 +796,81 @@ UserSchema.methods.clearAllSessions = async function(): Promise<void> {
   await this.save();
 };
 
+// Employee-specific methods
+
+// Check if employee is active
+UserSchema.methods.isActiveEmployee = function(): boolean {
+  return this.profile?.employmentStatus === EmploymentStatus.ACTIVE && 
+         this.status === UserStatus.ACTIVE;
+};
+
+// Check if employee is on probation
+UserSchema.methods.isOnProbation = function(): boolean {
+  return this.profile?.employmentStatus === EmploymentStatus.PROBATION ||
+         (this.profile?.probationEndDate && this.profile.probationEndDate > new Date());
+};
+
+// Get employee tenure in days
+UserSchema.methods.getTenureInDays = function(): number {
+  if (!this.profile?.hireDate) return 0;
+  const now = new Date();
+  const hireDate = new Date(this.profile.hireDate);
+  const diffTime = Math.abs(now.getTime() - hireDate.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+// Get employment status display
+UserSchema.methods.getEmploymentStatusDisplay = function(): string {
+  const status = this.profile?.employmentStatus || EmploymentStatus.ACTIVE;
+  return status.replace('_', ' ').toUpperCase();
+};
+
+// Check if employee can approve leaves
+UserSchema.methods.canApproveLeaves = function(): boolean {
+  return this.permissions?.canApproveLeaves === true;
+};
+
+// Check if employee can manage other employees
+UserSchema.methods.canManageEmployees = function(): boolean {
+  return this.permissions?.canManageEmployees === true;
+};
+
+// Get employee work schedule
+UserSchema.methods.getWorkSchedule = function() {
+  return this.profile?.workSchedule || {
+    workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+    startTime: '09:00',
+    endTime: '18:00',
+    breakDuration: 60,
+    weeklyHours: 40
+  };
+};
+
+// Terminate employee
+UserSchema.methods.terminateEmployee = async function(
+  terminationDate: Date, 
+  lastWorkingDay: Date,
+  reason?: string
+): Promise<void> {
+  this.profile = this.profile || {};
+  this.profile.employmentStatus = EmploymentStatus.TERMINATED;
+  this.profile.terminationDate = terminationDate;
+  this.profile.lastWorkingDay = lastWorkingDay;
+  this.status = UserStatus.INACTIVE;
+  
+  await this.save();
+};
+
+// Confirm employee (end probation)
+UserSchema.methods.confirmEmployee = async function(): Promise<void> {
+  this.profile = this.profile || {};
+  this.profile.employmentStatus = EmploymentStatus.ACTIVE;
+  this.profile.confirmationDate = new Date();
+  this.profile.probationEndDate = undefined;
+  
+  await this.save();
+};
+
 // Static method to find users by role
 UserSchema.statics.findByRole = function(role: UserRole) {
   return this.find({ role, isDeleted: false });
@@ -640,6 +907,59 @@ UserSchema.statics.createSuperAdmin = async function(userData: {
   });
 };
 
+// Employee-specific static methods
+
+// Find employees by employment status
+UserSchema.statics.findByEmploymentStatus = function(status: EmploymentStatus) {
+  return this.find({ 
+    'profile.employmentStatus': status,
+    isDeleted: false 
+  });
+};
+
+// Find employees by employee type
+UserSchema.statics.findByEmployeeType = function(type: EmployeeType) {
+  return this.find({ 
+    'profile.employeeType': type,
+    isDeleted: false 
+  });
+};
+
+// Find employees on probation
+UserSchema.statics.findOnProbation = function() {
+  return this.find({
+    $or: [
+      { 'profile.employmentStatus': EmploymentStatus.PROBATION },
+      { 
+        'profile.probationEndDate': { $gt: new Date() },
+        'profile.employmentStatus': EmploymentStatus.ACTIVE
+      }
+    ],
+    isDeleted: false
+  });
+};
+
+// Get employee statistics
+UserSchema.statics.getEmployeeStats = async function() {
+  return Promise.all([
+    this.countDocuments({ isDeleted: false }),
+    this.countDocuments({ 'profile.employmentStatus': EmploymentStatus.ACTIVE, isDeleted: false }),
+    this.countDocuments({ 'profile.employmentStatus': EmploymentStatus.PROBATION, isDeleted: false }),
+    this.countDocuments({ 'profile.employmentStatus': EmploymentStatus.TERMINATED, isDeleted: false }),
+    this.aggregate([
+      { $match: { isDeleted: false } },
+      { $group: { _id: '$profile.employeeType', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ])
+  ]).then(([total, active, probation, terminated, byType]) => ({
+    total,
+    active,
+    probation,
+    terminated,
+    byType
+  }));
+};
+
 // Model interface with static methods
 export interface IUserModel extends mongoose.Model<IUser> {
   findByRole(role: UserRole): mongoose.Query<IUser[], IUser>;
@@ -650,6 +970,18 @@ export interface IUserModel extends mongoose.Model<IUser> {
     firstName: string;
     lastName: string;
   }): Promise<IUser>;
+  
+  // Employee-specific static methods
+  findByEmploymentStatus(status: EmploymentStatus): mongoose.Query<IUser[], IUser>;
+  findByEmployeeType(type: EmployeeType): mongoose.Query<IUser[], IUser>;
+  findOnProbation(): mongoose.Query<IUser[], IUser>;
+  getEmployeeStats(): Promise<{
+    total: number;
+    active: number;
+    probation: number;
+    terminated: number;
+    byType: any[];
+  }>;
 }
 
 export const User = mongoose.model<IUser, IUserModel>('User', UserSchema);

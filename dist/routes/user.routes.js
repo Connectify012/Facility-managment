@@ -37,8 +37,8 @@ const router = (0, express_1.Router)();
  *           description: User phone number
  *         role:
  *           type: string
- *           enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
- *           description: User role
+ *           enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
+ *           description: User role (Note: SUPER_ADMIN and ADMIN creation restricted via API)
  *         status:
  *           type: string
  *           enum: [active, inactive, suspended, pending, blocked]
@@ -56,11 +56,6 @@ const router = (0, express_1.Router)();
  *         settings:
  *           type: object
  *           description: User settings
- *         assignedFacilities:
- *           type: array
- *           items:
- *             type: string
- *           description: Array of facility IDs assigned to user
  *         managedFacilities:
  *           type: array
  *           items:
@@ -109,7 +104,8 @@ const router = (0, express_1.Router)();
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *                 enum: [facility_manager, supervisor, technician, housekeeping, user, guest]
+ *                 description: User role (SUPER_ADMIN and ADMIN cannot be created through this endpoint)
  *               profile:
  *                 type: object
  *     responses:
@@ -136,7 +132,7 @@ const router = (0, express_1.Router)();
  *       500:
  *         description: Internal server error
  */
-router.post('/', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireAdmin, user_controller_1.UserController.createUser);
+router.post('/', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireManager, user_controller_1.UserController.createUser);
 /**
  * @swagger
  * /api/users:
@@ -163,7 +159,7 @@ router.post('/', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_
  *         name: role
  *         schema:
  *           type: string
- *           enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *           enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
  *         description: Filter by user role
  *       - in: query
  *         name: status
@@ -281,10 +277,6 @@ router.get('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middlewar
  *                 type: string
  *               profile:
  *                 type: object
- *               assignedFacilities:
- *                 type: array
- *                 items:
- *                   type: string
  *               managedFacilities:
  *                 type: array
  *                 items:
@@ -352,7 +344,7 @@ router.put('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middlewar
  *       500:
  *         description: Internal server error
  */
-router.delete('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireAdmin, user_controller_1.UserController.deleteUser);
+router.delete('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSupervisor, user_controller_1.UserController.deleteUser);
 /**
  * @swagger
  * /api/users/{id}/restore:
@@ -392,7 +384,7 @@ router.delete('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middle
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/restore', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireAdmin, user_controller_1.UserController.restoreUser);
+router.patch('/:id/restore', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSupervisor, user_controller_1.UserController.restoreUser);
 /**
  * @swagger
  * /api/users/{id}/status:
@@ -428,7 +420,7 @@ router.patch('/:id/restore', auth_middleware_1.AuthMiddleware.authenticate, auth
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/status', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireAdmin, user_controller_1.UserController.updateUserStatus);
+router.patch('/:id/status', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSupervisor, user_controller_1.UserController.updateUserStatus);
 /**
  * @swagger
  * /api/users/{id}/role:
@@ -453,7 +445,7 @@ router.patch('/:id/status', auth_middleware_1.AuthMiddleware.authenticate, auth_
  *             properties:
  *               role:
  *                 type: string
- *                 enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *                 enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
  *     responses:
  *       200:
  *         description: User role updated successfully
@@ -464,7 +456,7 @@ router.patch('/:id/status', auth_middleware_1.AuthMiddleware.authenticate, auth_
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/role', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireAdmin, user_controller_1.UserController.updateUserRole);
+router.patch('/:id/role', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSupervisor, user_controller_1.UserController.updateUserRole);
 /**
  * @swagger
  * /api/users/role/{role}:
@@ -477,7 +469,7 @@ router.patch('/:id/role', auth_middleware_1.AuthMiddleware.authenticate, auth_mi
  *         required: true
  *         schema:
  *           type: string
- *           enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *           enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
  *         description: User role
  *       - in: query
  *         name: page
@@ -543,5 +535,5 @@ router.get('/role/:role', auth_middleware_1.AuthMiddleware.authenticate, auth_mi
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/password', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireAdmin, user_controller_1.UserController.updatePassword);
+router.patch('/:id/password', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSupervisor, user_controller_1.UserController.updatePassword);
 exports.default = router;

@@ -55,9 +55,7 @@ export class AuthMiddleware {
         _id: decoded.id, 
         isDeleted: false 
       })
-        .populate('assignedFacilities', 'siteName city facilityType')
-        .populate('managedFacilities', 'siteName city facilityType')
-        .populate('managerId', 'firstName lastName email role');
+        .populate('managedFacilities', 'siteName city facilityType');
 
       if (!user) {
         return next(new AppError('User no longer exists. Please login again', 401));
@@ -121,6 +119,11 @@ export class AuthMiddleware {
   // Middleware to check if user has admin privileges (super_admin or admin)
   static requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
     AuthMiddleware.authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN)(req, res, next);
+  }
+
+  // Middleware to check if user has super admin privileges (super_admin only)
+  static requireSuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+    AuthMiddleware.authorize(UserRole.SUPER_ADMIN)(req, res, next);
   }
 
   // Middleware to check if user has management privileges (super_admin, admin, or facility_manager)
@@ -197,9 +200,9 @@ export class AuthMiddleware {
         }
       }
 
-      // Other roles can access facilities they are assigned to
-      const assignedFacilities = req.user.assignedFacilities.map((f: any) => f._id.toString());
-      if (facilityId && assignedFacilities.includes(facilityId)) {
+      // Other roles can access facilities they manage
+      const managedFacilities = req.user.managedFacilities.map((f: any) => f._id.toString());
+      if (facilityId && managedFacilities.includes(facilityId)) {
         return next();
       }
 

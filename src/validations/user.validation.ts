@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { UserRole, UserStatus, VerificationStatus } from '../models/User';
+import { EmployeeType, EmploymentStatus, ShiftType, UserRole, UserStatus, VerificationStatus, WorkLocation } from '../models/User';
 
 // User creation validation schema
 export const createUserSchema = Joi.object({
@@ -72,10 +72,10 @@ export const createUserSchema = Joi.object({
     }),
 
   role: Joi.string()
-    .valid(...Object.values(UserRole))
+    .valid(...Object.values(UserRole).filter(role => role !== UserRole.SUPER_ADMIN && role !== UserRole.ADMIN))
     .default(UserRole.USER)
     .messages({
-      'any.only': 'Role must be one of: ' + Object.values(UserRole).join(', ')
+      'any.only': 'Role must be one of: ' + Object.values(UserRole).filter(role => role !== UserRole.SUPER_ADMIN && role !== UserRole.ADMIN).join(', ')
     }),
 
   status: Joi.string()
@@ -94,8 +94,6 @@ export const createUserSchema = Joi.object({
 
   // Profile information
   profile: Joi.object({
-    avatar: Joi.string().uri().optional(),
-    bio: Joi.string().max(500).optional().trim(),
     dateOfBirth: Joi.date().optional(),
     address: Joi.object({
       street: Joi.string().optional().trim(),
@@ -113,7 +111,36 @@ export const createUserSchema = Joi.object({
     department: Joi.string().optional().trim(),
     jobTitle: Joi.string().optional().trim(),
     employeeId: Joi.string().optional().trim(),
-    hireDate: Joi.date().optional()
+    hireDate: Joi.date().optional(),
+    
+    // Enhanced employee fields
+    employeeType: Joi.string().valid(...Object.values(EmployeeType)).optional(),
+    employmentStatus: Joi.string().valid(...Object.values(EmploymentStatus)).optional(),
+    workLocation: Joi.string().valid(...Object.values(WorkLocation)).optional(),
+    shiftType: Joi.string().valid(...Object.values(ShiftType)).optional(),
+    probationEndDate: Joi.date().optional(),
+    confirmationDate: Joi.date().optional(),
+    terminationDate: Joi.date().optional(),
+    lastWorkingDay: Joi.date().optional(),
+    noticePeriod: Joi.number().integer().min(0).optional(),
+    
+    // Compensation & Benefits
+    salary: Joi.object({
+      basic: Joi.number().positive().optional(),
+      currency: Joi.string().default('INR'),
+      payFrequency: Joi.string().valid('monthly', 'weekly', 'bi_weekly', 'annual').default('monthly'),
+      effectiveDate: Joi.date().optional()
+    }).optional(),
+    
+    // Work Schedule
+    workSchedule: Joi.object({
+      workingDays: Joi.array().items(Joi.string()).optional(),
+      startTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+      endTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+      breakDuration: Joi.number().integer().min(0).optional(),
+      weeklyHours: Joi.number().min(0).max(168).optional()
+    }).optional(),
+
   }).optional(),
 
   // Settings
@@ -135,47 +162,11 @@ export const createUserSchema = Joi.object({
   }).optional(),
 
   // Facility associations
-  assignedFacilities: Joi.array()
-    .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
-    .optional()
-    .messages({
-      'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
-
   managedFacilities: Joi.array()
     .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
     .optional()
     .messages({
       'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
-
-  // Organization data
-  organizationId: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .optional()
-    .messages({
-      'string.pattern.base': 'Organization ID must be a valid ObjectId'
-    }),
-
-  departmentId: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .optional()
-    .messages({
-      'string.pattern.base': 'Department ID must be a valid ObjectId'
-    }),
-
-  managerId: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .optional()
-    .messages({
-      'string.pattern.base': 'Manager ID must be a valid ObjectId'
-    }),
-
-  subordinates: Joi.array()
-    .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
-    .optional()
-    .messages({
-      'string.pattern.base': 'Each subordinate ID must be a valid ObjectId'
     }),
 
   // Audit fields
@@ -240,8 +231,6 @@ export const updateUserSchema = Joi.object({
 
   // Profile information (same as create but all optional)
   profile: Joi.object({
-    avatar: Joi.string().uri().allow(''),
-    bio: Joi.string().max(500).trim().allow(''),
     dateOfBirth: Joi.date().allow(null),
     address: Joi.object({
       street: Joi.string().trim().allow(''),
@@ -259,7 +248,36 @@ export const updateUserSchema = Joi.object({
     department: Joi.string().trim().allow(''),
     jobTitle: Joi.string().trim().allow(''),
     employeeId: Joi.string().trim().allow(''),
-    hireDate: Joi.date().allow(null)
+    hireDate: Joi.date().allow(null),
+    
+    // Enhanced employee fields
+    employeeType: Joi.string().valid(...Object.values(EmployeeType)),
+    employmentStatus: Joi.string().valid(...Object.values(EmploymentStatus)),
+    workLocation: Joi.string().valid(...Object.values(WorkLocation)),
+    shiftType: Joi.string().valid(...Object.values(ShiftType)),
+    probationEndDate: Joi.date().allow(null),
+    confirmationDate: Joi.date().allow(null),
+    terminationDate: Joi.date().allow(null),
+    lastWorkingDay: Joi.date().allow(null),
+    noticePeriod: Joi.number().integer().min(0),
+    
+    // Compensation & Benefits
+    salary: Joi.object({
+      basic: Joi.number().positive(),
+      currency: Joi.string(),
+      payFrequency: Joi.string().valid('monthly', 'weekly', 'bi_weekly', 'annual'),
+      effectiveDate: Joi.date().allow(null)
+    }),
+    
+    // Work Schedule
+    workSchedule: Joi.object({
+      workingDays: Joi.array().items(Joi.string()),
+      startTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+      endTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+      breakDuration: Joi.number().integer().min(0),
+      weeklyHours: Joi.number().min(0).max(168)
+    }),
+
   }),
 
   // Settings
@@ -281,44 +299,10 @@ export const updateUserSchema = Joi.object({
   }),
 
   // Facility associations
-  assignedFacilities: Joi.array()
-    .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
-    .messages({
-      'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
-
   managedFacilities: Joi.array()
     .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
     .messages({
       'string.pattern.base': 'Each facility ID must be a valid ObjectId'
-    }),
-
-  // Organization data
-  organizationId: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
-    .messages({
-      'string.pattern.base': 'Organization ID must be a valid ObjectId'
-    }),
-
-  departmentId: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
-    .messages({
-      'string.pattern.base': 'Department ID must be a valid ObjectId'
-    }),
-
-  managerId: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
-    .messages({
-      'string.pattern.base': 'Manager ID must be a valid ObjectId'
-    }),
-
-  subordinates: Joi.array()
-    .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
-    .messages({
-      'string.pattern.base': 'Each subordinate ID must be a valid ObjectId'
     }),
 
   // Audit fields
@@ -401,4 +385,112 @@ export const roleParamSchema = Joi.object({
       'any.only': 'Role must be one of: ' + Object.values(UserRole).join(', '),
       'any.required': 'Role is required'
     })
+});
+
+// ===== EMPLOYEE-SPECIFIC VALIDATION SCHEMAS =====
+
+// Employment status parameter validation schema
+export const employmentStatusParamSchema = Joi.object({
+  status: Joi.string()
+    .valid(...Object.values(EmploymentStatus))
+    .required()
+    .messages({
+      'any.only': 'Employment status must be one of: ' + Object.values(EmploymentStatus).join(', '),
+      'any.required': 'Employment status is required'
+    })
+});
+
+// Employee type parameter validation schema
+export const employeeTypeParamSchema = Joi.object({
+  type: Joi.string()
+    .valid(...Object.values(EmployeeType))
+    .required()
+    .messages({
+      'any.only': 'Employee type must be one of: ' + Object.values(EmployeeType).join(', '),
+      'any.required': 'Employee type is required'
+    })
+});
+
+// Employee termination validation schema
+export const terminateEmployeeSchema = Joi.object({
+  terminationDate: Joi.date()
+    .required()
+    .messages({
+      'any.required': 'Termination date is required'
+    }),
+  
+  lastWorkingDay: Joi.date()
+    .required()
+    .messages({
+      'any.required': 'Last working day is required'
+    }),
+  
+  reason: Joi.string()
+    .optional()
+    .trim()
+    .max(500)
+    .messages({
+      'string.max': 'Reason cannot exceed 500 characters'
+    })
+});
+
+// Work schedule validation schema
+export const workScheduleSchema = Joi.object({
+  workSchedule: Joi.object({
+    workingDays: Joi.array()
+      .items(Joi.string().valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'))
+      .min(1)
+      .required()
+      .messages({
+        'array.min': 'At least one working day is required'
+      }),
+    
+    startTime: Joi.string()
+      .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Start time must be in HH:MM format',
+        'any.required': 'Start time is required'
+      }),
+    
+    endTime: Joi.string()
+      .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'End time must be in HH:MM format',
+        'any.required': 'End time is required'
+      }),
+    
+    breakDuration: Joi.number()
+      .integer()
+      .min(0)
+      .max(480)
+      .default(60)
+      .messages({
+        'number.min': 'Break duration cannot be negative',
+        'number.max': 'Break duration cannot exceed 8 hours (480 minutes)'
+      }),
+    
+    weeklyHours: Joi.number()
+      .min(1)
+      .max(168)
+      .required()
+      .messages({
+        'number.min': 'Weekly hours must be at least 1',
+        'number.max': 'Weekly hours cannot exceed 168 (24 hours × 7 days)',
+        'any.required': 'Weekly hours is required'
+      })
+  }).required()
+});
+
+// Employee query parameters validation schema
+export const employeeQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+  employmentStatus: Joi.string().valid(...Object.values(EmploymentStatus)).optional(),
+  employeeType: Joi.string().valid(...Object.values(EmployeeType)).optional(),
+  department: Joi.string().optional().trim(),
+  workLocation: Joi.string().valid(...Object.values(WorkLocation)).optional(),
+  shiftType: Joi.string().valid(...Object.values(ShiftType)).optional(),
+  search: Joi.string().max(100).optional().trim()
 });

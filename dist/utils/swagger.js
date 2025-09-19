@@ -34,7 +34,7 @@ const options = {
                 description: 'Development server',
             },
             {
-                url: 'https://api.facility.com',
+                url: 'https://facility-management.onrender.com',
                 description: 'Production server',
             },
         ],

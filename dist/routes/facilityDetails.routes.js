@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const facilityDetails_controller_1 = require("../controllers/facilityDetails.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const facilityDetails_validation_1 = require("../validations/facilityDetails.validation");
 const router = (0, express_1.Router)();
 /**
@@ -13,6 +14,12 @@ const router = (0, express_1.Router)();
 /**
  * @swagger
  * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *       description: Enter JWT Bearer token
  *   schemas:
  *     FacilityDetails:
  *       type: object
@@ -90,6 +97,8 @@ const router = (0, express_1.Router)();
  *   get:
  *     summary: Get all facilities with pagination and filtering
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -171,8 +180,12 @@ const router = (0, express_1.Router)();
  *                           type: boolean
  *       400:
  *         description: Invalid query parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  */
-router.get('/', facilityDetails_validation_1.validateFacilityQuery, facilityDetails_controller_1.FacilityDetailsController.getAllFacilities);
+router.get('/', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSuperAdmin, facilityDetails_validation_1.validateFacilityQuery, facilityDetails_controller_1.FacilityDetailsController.getAllFacilities);
 /**
  * @swagger
  * /api/facilities:
@@ -180,6 +193,8 @@ router.get('/', facilityDetails_validation_1.validateFacilityQuery, facilityDeta
  *     summary: Create a new facility with auto-initialized services
  *     description: Creates a new facility and automatically initializes default services for all categories (Soft Services, Technical Services, AMC Services)
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -253,14 +268,20 @@ router.get('/', facilityDetails_validation_1.validateFacilityQuery, facilityDeta
  *                       $ref: '#/components/schemas/FacilityDetails'
  *       400:
  *         description: Validation error
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  */
-router.post('/', facilityDetails_validation_1.validateCreateFacility, facilityDetails_controller_1.FacilityDetailsController.createFacility);
+router.post('/', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSuperAdmin, facilityDetails_validation_1.validateCreateFacility, facilityDetails_controller_1.FacilityDetailsController.createFacility);
 /**
  * @swagger
  * /api/facilities/bulk:
  *   post:
  *     summary: Create multiple facilities at once
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -323,14 +344,20 @@ router.post('/', facilityDetails_validation_1.validateCreateFacility, facilityDe
  *         description: Facilities created successfully
  *       400:
  *         description: Validation error
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  */
-router.post('/bulk', facilityDetails_validation_1.validateBulkCreateFacilities, facilityDetails_controller_1.FacilityDetailsController.bulkCreateFacilities);
+router.post('/bulk', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSuperAdmin, facilityDetails_validation_1.validateBulkCreateFacilities, facilityDetails_controller_1.FacilityDetailsController.bulkCreateFacilities);
 /**
  * @swagger
  * /api/facilities/stats:
  *   get:
  *     summary: Get facilities statistics
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Statistics retrieved successfully
@@ -369,14 +396,20 @@ router.post('/bulk', facilityDetails_validation_1.validateBulkCreateFacilities, 
  *                       type: array
  *                       items:
  *                         type: object
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  */
-router.get('/stats', facilityDetails_controller_1.FacilityDetailsController.getFacilitiesStats);
+router.get('/stats', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSuperAdmin, facilityDetails_controller_1.FacilityDetailsController.getFacilitiesStats);
 /**
  * @swagger
  * /api/facilities/{id}:
  *   get:
  *     summary: Get facility by ID
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -402,16 +435,22 @@ router.get('/stats', facilityDetails_controller_1.FacilityDetailsController.getF
  *                       $ref: '#/components/schemas/FacilityDetails'
  *       400:
  *         description: Invalid facility ID
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  *       404:
  *         description: Facility not found
  */
-router.get('/:id', facilityDetails_controller_1.FacilityDetailsController.getFacilityById);
+router.get('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSuperAdmin, facilityDetails_controller_1.FacilityDetailsController.getFacilityById);
 /**
  * @swagger
  * /api/facilities/{id}:
  *   put:
  *     summary: Update facility by ID
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -454,16 +493,22 @@ router.get('/:id', facilityDetails_controller_1.FacilityDetailsController.getFac
  *         description: Facility updated successfully
  *       400:
  *         description: Invalid facility ID or validation error
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  *       404:
  *         description: Facility not found
  */
-router.put('/:id', facilityDetails_validation_1.validateUpdateFacility, facilityDetails_controller_1.FacilityDetailsController.updateFacility);
+router.put('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireManager, facilityDetails_validation_1.validateUpdateFacility, facilityDetails_controller_1.FacilityDetailsController.updateFacility);
 /**
  * @swagger
  * /api/facilities/{id}:
  *   delete:
  *     summary: Delete facility by ID
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -476,16 +521,22 @@ router.put('/:id', facilityDetails_validation_1.validateUpdateFacility, facility
  *         description: Facility deleted successfully
  *       400:
  *         description: Invalid facility ID
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  *       404:
  *         description: Facility not found
  */
-router.delete('/:id', facilityDetails_controller_1.FacilityDetailsController.deleteFacility);
+router.delete('/:id', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSuperAdmin, facilityDetails_controller_1.FacilityDetailsController.deleteFacility);
 /**
- * @swagger
+ * @swaggerr
  * /api/facilities/tenant/{tenantId}:
  *   get:
  *     summary: Get facility by tenant ID
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: tenantId
@@ -496,16 +547,22 @@ router.delete('/:id', facilityDetails_controller_1.FacilityDetailsController.del
  *     responses:
  *       200:
  *         description: Facility retrieved successfully
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  *       404:
  *         description: Facility not found
  */
-router.get('/tenant/:tenantId', facilityDetails_controller_1.FacilityDetailsController.getFacilityByTenantId);
+router.get('/tenant/:tenantId', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireManager, facilityDetails_controller_1.FacilityDetailsController.getFacilityByTenantId);
 /**
- * @swagger
+ * @swaggerr
  * /api/facilities/tenant/{tenantId}:
  *   put:
  *     summary: Update facility by tenant ID
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: tenantId
@@ -543,16 +600,22 @@ router.get('/tenant/:tenantId', facilityDetails_controller_1.FacilityDetailsCont
  *         description: Facility updated successfully
  *       400:
  *         description: Validation error
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  *       404:
  *         description: Facility not found
  */
-router.put('/tenant/:tenantId', facilityDetails_validation_1.validateUpdateFacility, facilityDetails_controller_1.FacilityDetailsController.updateFacilityByTenantId);
+router.put('/tenant/:tenantId', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireManager, facilityDetails_validation_1.validateUpdateFacility, facilityDetails_controller_1.FacilityDetailsController.updateFacilityByTenantId);
 /**
- * @swagger
+ * @swaggerr
  * /api/facilities/tenant/{tenantId}:
  *   delete:
  *     summary: Delete facility by tenant ID
  *     tags: [Facility Details]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: tenantId
@@ -563,8 +626,12 @@ router.put('/tenant/:tenantId', facilityDetails_validation_1.validateUpdateFacil
  *     responses:
  *       200:
  *         description: Facility deleted successfully
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Super admin access required
  *       404:
  *         description: Facility not found
  */
-router.delete('/tenant/:tenantId', facilityDetails_controller_1.FacilityDetailsController.deleteFacilityByTenantId);
+router.delete('/tenant/:tenantId', auth_middleware_1.AuthMiddleware.authenticate, auth_middleware_1.AuthMiddleware.requireSuperAdmin, facilityDetails_controller_1.FacilityDetailsController.deleteFacilityByTenantId);
 exports.default = router;

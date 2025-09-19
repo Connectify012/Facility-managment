@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { AppError } from '../middleware/errorHandler';
 import { User, UserRole, UserStatus } from '../models/User';
 import { logger } from '../utils/logger';
@@ -6,9 +7,36 @@ import { validateObjectId, validatePagination } from '../utils/validation';
 
 export class UserController {
   // Create new user
-  static async createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // Note: SUPER_ADMIN and ADMIN roles cannot be created through this endpoint for security reasons
+  // Use User.createSuperAdmin() static method or dedicated admin creation process instead
+  static async createUser(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userData = req.body;
+      const currentUser = req.user; // The authenticated user creating the employee
+
+      // Prevent creation of SUPER_ADMIN and ADMIN roles through regular API
+      if (userData.role === UserRole.SUPER_ADMIN || userData.role === UserRole.ADMIN) {
+        return next(new AppError('Cannot create SUPER_ADMIN or ADMIN users through this endpoint. Use dedicated admin creation methods.', 403));
+      }
+
+      // Auto-populate createdBy field with current user's ID
+      if (currentUser) {
+        userData.createdBy = currentUser._id;
+      }
+
+      // Auto-assign facilities from current user (creator)
+      // Remove managedFacilities from request body to prevent manual assignment
+      delete userData.managedFacilities;
+      
+      // Assign facilities based on current user's role and managed facilities
+      if (currentUser && currentUser.managedFacilities && currentUser.managedFacilities.length > 0) {
+        userData.managedFacilities = currentUser.managedFacilities;
+        logger.info(`User ${currentUser._id} creating employee with auto-assigned facilities: ${userData.managedFacilities}`);
+      } else {
+        // If current user has no managed facilities, assign empty array
+        userData.managedFacilities = [];
+        logger.info(`User ${currentUser._id} creating employee with no facilities (user has no managed facilities)`);
+      }
 
       // Check if user with email already exists
       const existingUser = await User.findOne({ 
@@ -39,7 +67,7 @@ export class UserController {
       // Remove password from response
       const userResponse = user.toJSON();
       
-      logger.info(`User created successfully: ${user._id}`);
+      logger.info(`User created successfully: ${user._id} by ${currentUser?._id || 'system'}`);
 
       res.status(201).json({
         status: 'success',
@@ -55,7 +83,7 @@ export class UserController {
   }
 
   // Get all users with pagination and filtering
-  static async getAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getAllUsers(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { page = 1, limit = 10, role, status, search } = req.query;
       
@@ -90,10 +118,7 @@ export class UserController {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(validatedPagination.limit)
-        .populate('assignedFacilities', 'siteName city facilityType')
-        .populate('managedFacilities', 'siteName city facilityType')
-        .populate('managerId', 'firstName lastName email')
-        .populate('subordinates', 'firstName lastName email role');
+        .populate('managedFacilities', 'siteName city facilityType');
 
       // Get total count for pagination
       const total = await User.countDocuments(filter);
@@ -131,10 +156,7 @@ export class UserController {
 
       const user = await User.findOne({ _id: id, isDeleted: false })
         .select('-password')
-        .populate('assignedFacilities', 'siteName city facilityType')
         .populate('managedFacilities', 'siteName city facilityType')
-        .populate('managerId', 'firstName lastName email role')
-        .populate('subordinates', 'firstName lastName email role')
         .populate('createdBy', 'firstName lastName email')
         .populate('updatedBy', 'firstName lastName email');
 
@@ -157,10 +179,11 @@ export class UserController {
   }
 
   // Update user
-  static async updateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async updateUser(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const updateData = req.body;
+      const currentUser = req.user;
 
       // Validate ObjectId
       if (!validateObjectId(id)) {
@@ -201,9 +224,9 @@ export class UserController {
         }
       }
 
-      // Add updatedBy field if available from auth middleware
-      if (req.body.updatedBy) {
-        updateData.updatedBy = req.body.updatedBy;
+      // Auto-populate updatedBy field with current user's ID
+      if (currentUser) {
+        updateData.updatedBy = currentUser._id;
       }
 
       const user = await User.findOneAndUpdate(
@@ -219,7 +242,7 @@ export class UserController {
         return next(new AppError('User not found', 404));
       }
 
-      logger.info(`User updated successfully: ${user._id}`);
+      logger.info(`User updated successfully: ${user._id} by ${currentUser?._id || 'system'}`);
 
       res.status(200).json({
         status: 'success',
@@ -235,9 +258,10 @@ export class UserController {
   }
 
   // Delete user (soft delete)
-  static async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async deleteUser(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
+      const currentUser = req.user;
 
       // Validate ObjectId
       if (!validateObjectId(id)) {
@@ -263,14 +287,14 @@ export class UserController {
         status: UserStatus.INACTIVE
       };
 
-      // Add deletedBy field if available from auth middleware
-      if (req.body.deletedBy) {
-        deleteData.deletedBy = req.body.deletedBy;
+      // Auto-populate deletedBy field with current user's ID
+      if (currentUser) {
+        deleteData.deletedBy = currentUser._id;
       }
 
       await User.findByIdAndUpdate(id, deleteData);
 
-      logger.info(`User deleted successfully: ${id}`);
+      logger.info(`User deleted successfully: ${id} by ${currentUser?._id || 'system'}`);
 
       res.status(200).json({
         status: 'success',
@@ -495,4 +519,7 @@ export class UserController {
       return next(new AppError('Error updating password', 500));
     }
   }
+
+  // ===== EMPLOYEE MANAGEMENT METHODS =====
+  
 }

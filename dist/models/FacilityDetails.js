@@ -1,10 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FacilityDetails = void 0;
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const mongoose_1 = require("mongoose");
 const facilityDetailsSchema = new mongoose_1.Schema({
     tenantId: {
@@ -64,10 +60,6 @@ const facilityDetailsSchema = new mongoose_1.Schema({
             message: 'Please provide a valid email address'
         }
     },
-    password: {
-        type: String,
-        default: 'defaultpassword'
-    },
     facilityType: {
         type: String,
         required: true
@@ -104,28 +96,4 @@ facilityDetailsSchema.index({
     location: 'text',
     clientName: 'text'
 });
-// Pre-save hook to set password same as email and hash it
-facilityDetailsSchema.pre('save', async function (next) {
-    try {
-        // Set password to email if not already set
-        if (this.email && (!this.password || this.password === 'defaultpassword')) {
-            this.password = this.email;
-        }
-        // Hash the password if it's been modified
-        if (this.isModified('password') && this.password) {
-            const saltRounds = 12;
-            this.password = await bcryptjs_1.default.hash(this.password, saltRounds);
-        }
-        next();
-    }
-    catch (error) {
-        next(error);
-    }
-});
-// Method to compare password
-facilityDetailsSchema.methods.comparePassword = async function (candidatePassword) {
-    if (!this.password)
-        return false;
-    return bcryptjs_1.default.compare(candidatePassword, this.password);
-};
 exports.FacilityDetails = (0, mongoose_1.model)('FacilityDetails', facilityDetailsSchema, 'facilityDetails');

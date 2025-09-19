@@ -37,8 +37,8 @@ const router = Router();
  *           description: User phone number
  *         role:
  *           type: string
- *           enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
- *           description: User role
+ *           enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
+ *           description: User role (Note: SUPER_ADMIN and ADMIN creation restricted via API)
  *         status:
  *           type: string
  *           enum: [active, inactive, suspended, pending, blocked]
@@ -56,11 +56,6 @@ const router = Router();
  *         settings:
  *           type: object
  *           description: User settings
- *         assignedFacilities:
- *           type: array
- *           items:
- *             type: string
- *           description: Array of facility IDs assigned to user
  *         managedFacilities:
  *           type: array
  *           items:
@@ -110,7 +105,8 @@ const router = Router();
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *                 enum: [facility_manager, supervisor, technician, housekeeping, user, guest]
+ *                 description: User role (SUPER_ADMIN and ADMIN cannot be created through this endpoint)
  *               profile:
  *                 type: object
  *     responses:
@@ -137,7 +133,7 @@ const router = Router();
  *       500:
  *         description: Internal server error
  */
-router.post('/', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, UserController.createUser);
+router.post('/', AuthMiddleware.authenticate, AuthMiddleware.requireManager, UserController.createUser);
 
 /**
  * @swagger
@@ -165,7 +161,7 @@ router.post('/', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, UserC
  *         name: role
  *         schema:
  *           type: string
- *           enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *           enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
  *         description: Filter by user role
  *       - in: query
  *         name: status
@@ -285,10 +281,6 @@ router.get('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireOwnershipO
  *                 type: string
  *               profile:
  *                 type: object
- *               assignedFacilities:
- *                 type: array
- *                 items:
- *                   type: string
  *               managedFacilities:
  *                 type: array
  *                 items:
@@ -357,7 +349,7 @@ router.put('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireOwnershipO
  *       500:
  *         description: Internal server error
  */
-router.delete('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, UserController.deleteUser);
+router.delete('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireSupervisor, UserController.deleteUser);
 
 /**
  * @swagger
@@ -398,7 +390,7 @@ router.delete('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, 
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/restore', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, UserController.restoreUser);
+router.patch('/:id/restore', AuthMiddleware.authenticate, AuthMiddleware.requireSupervisor, UserController.restoreUser);
 
 /**
  * @swagger
@@ -435,7 +427,7 @@ router.patch('/:id/restore', AuthMiddleware.authenticate, AuthMiddleware.require
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/status', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, UserController.updateUserStatus);
+router.patch('/:id/status', AuthMiddleware.authenticate, AuthMiddleware.requireSupervisor, UserController.updateUserStatus);
 
 /**
  * @swagger
@@ -461,7 +453,7 @@ router.patch('/:id/status', AuthMiddleware.authenticate, AuthMiddleware.requireA
  *             properties:
  *               role:
  *                 type: string
- *                 enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *                 enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
  *     responses:
  *       200:
  *         description: User role updated successfully
@@ -472,7 +464,7 @@ router.patch('/:id/status', AuthMiddleware.authenticate, AuthMiddleware.requireA
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/role', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, UserController.updateUserRole);
+router.patch('/:id/role', AuthMiddleware.authenticate, AuthMiddleware.requireSupervisor, UserController.updateUserRole);
 
 /**
  * @swagger
@@ -486,7 +478,7 @@ router.patch('/:id/role', AuthMiddleware.authenticate, AuthMiddleware.requireAdm
  *         required: true
  *         schema:
  *           type: string
- *           enum: [super_admin, admin, facility_manager, supervisor, technician, user, guest]
+ *           enum: [super_admin, admin, facility_manager, supervisor, technician, housekeeping, user, guest]
  *         description: User role
  *       - in: query
  *         name: page
@@ -553,6 +545,6 @@ router.get('/role/:role', AuthMiddleware.authenticate, AuthMiddleware.requireMan
  *       500:
  *         description: Internal server error
  */
-router.patch('/:id/password', AuthMiddleware.authenticate, AuthMiddleware.requireAdmin, UserController.updatePassword);
+router.patch('/:id/password', AuthMiddleware.authenticate, AuthMiddleware.requireSupervisor, UserController.updatePassword);
 
 export default router;

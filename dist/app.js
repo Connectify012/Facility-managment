@@ -15,6 +15,7 @@ const notFoundHandler_1 = require("./middleware/notFoundHandler");
 const rateLimiter_1 = require("./middleware/rateLimiter");
 // Import route files
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
+const employee_routes_1 = __importDefault(require("./routes/employee.routes"));
 const facilityDetails_routes_1 = __importDefault(require("./routes/facilityDetails.routes"));
 const iotServiceManagement_routes_1 = __importDefault(require("./routes/iotServiceManagement.routes"));
 const serviceManagement_routes_1 = __importDefault(require("./routes/serviceManagement.routes"));
@@ -101,6 +102,7 @@ app.get('/health', (req, res) => {
 });
 // Routes
 app.use('/api/auth', auth_routes_1.default);
+app.use('/api/employees', employee_routes_1.default);
 app.use('/api/facilities', facilityDetails_routes_1.default);
 app.use('/api/service-management', serviceManagement_routes_1.default);
 app.use('/api/service-providers', serviceProvider_routes_1.default);

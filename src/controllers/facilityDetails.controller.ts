@@ -1,6 +1,9 @@
-import { NextFunction, Request, Response } from 'express';
+import { NextFunction, Response } from 'express';
+import mongoose from 'mongoose';
+import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { AppError } from '../middleware/errorHandler';
 import { FacilityDetails } from '../models/FacilityDetails';
+import { User, UserRole, UserStatus, VerificationStatus } from '../models/User';
 import { logger } from '../utils/logger';
 import { validateObjectId, validatePagination } from '../utils/validation';
 import { IoTServiceManagementController } from './iotServiceManagement.controller';
@@ -8,59 +11,170 @@ import { ServiceManagementController } from './serviceManagement.controller';
 
 export class FacilityDetailsController {
   // Create new facility
-  static async createFacility(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async createFacility(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    const session = await mongoose.startSession();
+    let facility: any = null;
+    let createdUser: any = null;
+    
     try {
-      const facilityData = req.body;
+      await session.withTransaction(async () => {
+        const facilityData = req.body;
 
-      // Remove tenantId from request body as it will be auto-generated
-      delete facilityData.tenantId;
+        // Remove tenantId from request body as it will be auto-generated
+        delete facilityData.tenantId;
 
-      // Create new facility
-      const facility = new FacilityDetails(facilityData);
-      await facility.save();
+        // Create new facility
+        facility = new FacilityDetails(facilityData);
+        await facility.save({ session });
 
-      // Auto-initialize services for the facility
-      try {
-        // Use a default createdBy value if not provided (you can modify this based on your auth system)
-        const createdBy = req.body.createdBy || facility._id.toString(); // Use facility ID as fallback
-        
-        // Initialize regular services
-        await ServiceManagementController.autoInitializeServicesForFacility(
-          facility._id.toString(),
-          facility.siteName,
-          facility.facilityType,
-          createdBy
-        );
+        // Create user account for facility client
+        if (facility.email) {
+          try {
+            // Check if user with this email already exists
+            const existingUser = await User.findOne({ email: facility.email }).session(session);
+            if (!existingUser) {
+          
+              // Generate default password (facility clients can change it later)
+              const defaultPassword = `${facility.clientName.replace(/\s+/g, '').toLowerCase()}@${facility.tenantId.substring(0, 8)}`;
+              
+              // Create user account with facility information
+              const userData = {
+                firstName: facility.clientName.split(' ')[0] || facility.clientName,
+                lastName: facility.clientName.split(' ').slice(1).join(' ') || '',
+                email: facility.email,
+                password: defaultPassword,
+                role: UserRole.FACILITY_MANAGER,
+                status: UserStatus.ACTIVE,
+                verificationStatus: VerificationStatus.VERIFIED,
+                profile: {
+                  jobTitle: facility.position,
+                  department: 'Facility Management',
+                  address: {
+                    street: facility.location,
+                    city: facility.city,
+                  },
+                  employeeId: `FM-${facility.tenantId.substring(0, 8)}`,
+                  hireDate: new Date()
+                },
+                managedFacilities: [facility._id],
+                permissions: {
+                  canManageFacilities: true,
+                  canManageServices: true,
+                  canManageIOT: true,
+                  canViewReports: true,
+                  canManageEmployees: false,
+                  canManageUsers: false,
+                  canManageSettings: false,
+                  canManageBilling: false,
+                  canAccessAuditLogs: false,
+                  canViewEmployeeReports: false,
+                  canApproveLeaves: false,
+                  canManageAttendance: false,
+                  canManageShifts: false,
+                  canManagePayroll: false,
+                  canViewSalaryInfo: false,
+                  canManageDocuments: false,
+                  customPermissions: ['facility_management']
+                },
+                settings: {
+                  notifications: {
+                    email: true,
+                    sms: false,
+                    push: true,
+                    inApp: true
+                  },
+                  privacy: {
+                    profileVisibility: 'private' as const,
+                    showEmail: false,
+                    showPhone: false
+                  },
+                  language: 'en',
+                  timezone: 'UTC',
+                  theme: 'light' as const
+                }
+              };
 
-        // Initialize IoT services
-        await IoTServiceManagementController.autoInitializeIoTServicesForFacility(
-          facility._id.toString(),
-          facility.siteName,
-          facility.facilityType,
-          createdBy
-        );
+              createdUser = new User(userData);
+              await createdUser.save({ session });
 
-        logger.info(`Services and IoT services auto-initialized for facility: ${facility._id}`);
-      } catch (serviceError) {
-        // Log the error but don't fail the facility creation
-        logger.warn(`Failed to auto-initialize services for facility ${facility._id}:`, serviceError);
+              logger.info(`New user account created for facility manager: ${createdUser.email} (${createdUser._id}) for facility: ${facility._id}`);
+            }
+          } catch (userError) {
+            // If user creation fails, we'll throw an error to rollback the transaction
+            logger.error(`Failed to create/assign user account for facility ${facility._id}:`, userError);
+            throw new AppError('Failed to create facility manager account', 500);
+          }
+        }
+
+        // Auto-initialize services for the facility
+        try {
+          // Use authenticated user ID for audit trails
+          const createdBy = req.user?._id?.toString() || req.body.createdBy || facility._id.toString();
+          
+          // Initialize regular services
+          await ServiceManagementController.autoInitializeServicesForFacility(
+            facility._id.toString(),
+            facility.siteName,
+            facility.facilityType,
+            createdBy
+          );
+
+          // Initialize IoT services
+          await IoTServiceManagementController.autoInitializeIoTServicesForFacility(
+            facility._id.toString(),
+            facility.siteName,
+            facility.facilityType,
+            createdBy
+          );
+
+          logger.info(`Services and IoT services auto-initialized for facility: ${facility._id} by user: ${req.user?.email || 'Unknown'}`);
+        } catch (serviceError) {
+          // Log the error but don't fail the facility creation
+          logger.warn(`Failed to auto-initialize services for facility ${facility._id}:`, serviceError);
+        }
+      });
+
+      // Transaction completed successfully
+      // Log successful facility creation
+      logger.info(`Facility created: ${facility._id} (${facility.siteName}) by user: ${req.user?.email || 'Unknown'} (${req.user?._id || 'Unknown ID'})`);
+
+      const responseData: any = {
+        facility
+      };
+
+      // Include user information in response if user was created/assigned
+      if (createdUser) {
+        const isNewUser = createdUser.createdAt && (Date.now() - createdUser.createdAt.getTime()) < 5000; // Created within last 5 seconds
+        responseData.facilityManager = {
+          id: createdUser._id,
+          email: createdUser.email,
+          firstName: createdUser.firstName,
+          lastName: createdUser.lastName,
+          isNewUser,
+          defaultPassword: isNewUser ? `${facility.clientName.replace(/\s+/g, '').toLowerCase()}@${facility.tenantId.substring(0, 8)}` : undefined,
+          message: isNewUser 
+            ? 'New user account created successfully. Please share login credentials with facility manager.'
+            : 'Existing user assigned to manage this facility.'
+        };
       }
 
       res.status(201).json({
         status: 'success',
-        message: 'Facility created successfully with services and IoT services initialized',
-        data: {
-          facility
-        }
+        message: createdUser 
+          ? 'Facility created successfully with services initialized and facility manager account set up'
+          : 'Facility created successfully with services initialized',
+        data: responseData
       });
     } catch (error) {
-      logger.error('Create facility error:', error);
+      logger.error(`Create facility error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
+    } finally {
+      await session.endSession();
     }
   }
 
   // Get all facilities with pagination and filtering
-  static async getAllFacilities(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getAllFacilities(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
         search,
@@ -128,13 +242,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Get all facilities error:', error);
+      logger.error(`Get all facilities error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Get facility by ID
-  static async getFacilityById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getFacilityById(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -155,13 +269,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Get facility by ID error:', error);
+      logger.error(`Get facility by ID error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Get facility by tenant ID
-  static async getFacilityByTenantId(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getFacilityByTenantId(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { tenantId } = req.params;
 
@@ -178,13 +292,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Get facility by tenant ID error:', error);
+      logger.error(`Get facility by tenant ID error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Update facility by ID
-  static async updateFacility(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async updateFacility(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -208,6 +322,9 @@ export class FacilityDetailsController {
         throw new AppError('Facility not found', 404);
       }
 
+      // Log the update action with user context
+      logger.info(`Facility updated: ${facility._id} (${facility.siteName}) by user: ${req.user?.email || 'Unknown'} (${req.user?._id || 'Unknown ID'})`);
+
       res.json({
         status: 'success',
         message: 'Facility updated successfully',
@@ -216,13 +333,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Update facility error:', error);
+      logger.error(`Update facility error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Update facility by tenant ID
-  static async updateFacilityByTenantId(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async updateFacilityByTenantId(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { tenantId } = req.params;
       const updateData = req.body;
@@ -242,6 +359,9 @@ export class FacilityDetailsController {
         throw new AppError('Facility not found', 404);
       }
 
+      // Log the update action with user context
+      logger.info(`Facility updated by tenant ID: ${facility._id} (${facility.siteName}) by user: ${req.user?.email || 'Unknown'} (${req.user?._id || 'Unknown ID'})`);
+
       res.json({
         status: 'success',
         message: 'Facility updated successfully',
@@ -250,13 +370,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Update facility by tenant ID error:', error);
+      logger.error(`Update facility by tenant ID error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Delete facility by ID
-  static async deleteFacility(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async deleteFacility(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -270,6 +390,9 @@ export class FacilityDetailsController {
         throw new AppError('Facility not found', 404);
       }
 
+      // Log the deletion action with user context
+      logger.info(`Facility deleted: ${facility._id} (${facility.siteName}) by user: ${req.user?.email || 'Unknown'} (${req.user?._id || 'Unknown ID'})`);
+
       res.json({
         status: 'success',
         message: 'Facility deleted successfully',
@@ -278,13 +401,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Delete facility error:', error);
+      logger.error(`Delete facility error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Delete facility by tenant ID
-  static async deleteFacilityByTenantId(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async deleteFacilityByTenantId(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { tenantId } = req.params;
 
@@ -294,6 +417,9 @@ export class FacilityDetailsController {
         throw new AppError('Facility not found', 404);
       }
 
+      // Log the deletion action with user context
+      logger.info(`Facility deleted by tenant ID: ${tenantId} by user: ${req.user?.email || 'Unknown'} (${req.user?._id || 'Unknown ID'})`);
+
       res.json({
         status: 'success',
         message: 'Facility deleted successfully',
@@ -302,13 +428,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Delete facility by tenant ID error:', error);
+      logger.error(`Delete facility by tenant ID error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Get facilities statistics
-  static async getFacilitiesStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getFacilitiesStats(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const [
         totalFacilities,
@@ -359,13 +485,13 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Get facilities stats error:', error);
+      logger.error(`Get facilities stats error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
 
   // Bulk create facilities
-  static async bulkCreateFacilities(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async bulkCreateFacilities(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { facilities } = req.body;
 
@@ -383,6 +509,9 @@ export class FacilityDetailsController {
         ordered: false // Continue on errors
       });
 
+      // Log successful bulk creation
+      logger.info(`Bulk facility creation: ${createdFacilities.length} facilities created by user: ${req.user?.email || 'Unknown'} (${req.user?._id || 'Unknown ID'})`);
+
       res.status(201).json({
         status: 'success',
         message: `${createdFacilities.length} facilities created successfully`,
@@ -391,7 +520,7 @@ export class FacilityDetailsController {
         }
       });
     } catch (error) {
-      logger.error('Bulk create facilities error:', error);
+      logger.error(`Bulk create facilities error by user ${req.user?.email || 'Unknown'}:`, error);
       next(error);
     }
   }
