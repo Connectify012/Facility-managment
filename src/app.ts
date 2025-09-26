@@ -124,6 +124,10 @@ app.use('/api/shift-schedules', shiftScheduleRoutes);
 
 app.use('/api/rosters', rosterRoutes);
 
+// Import and register weekoff planner routes
+import weekoffPlannerRoutes from './routes/weekoffPlanner.routes';
+app.use('/api/weekoff-planners', weekoffPlannerRoutes);
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
