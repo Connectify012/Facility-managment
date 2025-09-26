@@ -148,6 +148,10 @@ app.use('/api/daily-checklists', dailyChecklistRoutes);
 import floorLocationRoutes from './routes/floorLocation.routes';
 app.use('/api/floor-locations', floorLocationRoutes);
 
+// Import and register power management routes
+import powerManagementRoutes from './routes/powerManagement.routes';
+app.use('/api/power-management', powerManagementRoutes);
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
