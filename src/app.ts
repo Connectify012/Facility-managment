@@ -128,6 +128,10 @@ app.use('/api/rosters', rosterRoutes);
 import weekoffPlannerRoutes from './routes/weekoffPlanner.routes';
 app.use('/api/weekoff-planners', weekoffPlannerRoutes);
 
+// Import and register leave planner routes
+import leavePlannerRoutes from './routes/leavePlanner.routes';
+app.use('/api/leave-planners', leavePlannerRoutes);
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
