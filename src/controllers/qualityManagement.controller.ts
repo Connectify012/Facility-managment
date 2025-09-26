@@ -1,6 +1,6 @@
 import { Response } from 'express';
-import { STP, WTP, SwimmingPool, ROPlant, ISTP, IWTP, ISwimmingPool, IROPlant } from '../models/QualityManagement';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { IROPlant, ISTP, ISwimmingPool, IWTP, ROPlant, STP, SwimmingPool, WTP } from '../models/QualityManagement';
 
 const generateResponse = (success: boolean, message: string, data?: any, error?: any) => ({
   success,

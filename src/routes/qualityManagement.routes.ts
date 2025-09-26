@@ -1,40 +1,40 @@
 import express from 'express';
 import {
-  // STP controllers
-  createSTP,
-  getAllSTP,
-  getSTPById,
-  updateSTP,
-  deleteSTP,
-  // WTP controllers
-  createWTP,
-  getAllWTP,
-  getWTPById,
-  updateWTP,
-  deleteWTP,
-  // Swimming Pool controllers
-  createSwimmingPool,
-  getAllSwimmingPools,
-  getSwimmingPoolById,
-  updateSwimmingPool,
-  deleteSwimmingPool,
-  // RO Plant controllers
-  createROPlant,
-  getAllROPlants,
-  getROPlantById,
-  updateROPlant,
-  deleteROPlant
+    // RO Plant controllers
+    createROPlant,
+    // STP controllers
+    createSTP,
+    // Swimming Pool controllers
+    createSwimmingPool,
+    // WTP controllers
+    createWTP,
+    deleteROPlant,
+    deleteSTP,
+    deleteSwimmingPool,
+    deleteWTP,
+    getAllROPlants,
+    getAllSTP,
+    getAllSwimmingPools,
+    getAllWTP,
+    getROPlantById,
+    getSTPById,
+    getSwimmingPoolById,
+    getWTPById,
+    updateROPlant,
+    updateSTP,
+    updateSwimmingPool,
+    updateWTP
 } from '../controllers/qualityManagement.controller';
 import { AuthMiddleware } from '../middleware/auth.middleware';
 import {
-  validateCreateSTP,
-  validateUpdateSTP,
-  validateCreateWTP,
-  validateUpdateWTP,
-  validateCreateSwimmingPool,
-  validateUpdateSwimmingPool,
-  validateCreateROPlant,
-  validateUpdateROPlant
+    validateCreateROPlant,
+    validateCreateSTP,
+    validateCreateSwimmingPool,
+    validateCreateWTP,
+    validateUpdateROPlant,
+    validateUpdateSTP,
+    validateUpdateSwimmingPool,
+    validateUpdateWTP
 } from '../validations/qualityManagement.validation';
 
 const router = express.Router();
