@@ -152,6 +152,10 @@ app.use('/api/floor-locations', floorLocationRoutes);
 import powerManagementRoutes from './routes/powerManagement.routes';
 app.use('/api/power-management', powerManagementRoutes);
 
+// Import and register water management routes
+import waterManagementRoutes from './routes/waterManagement.routes';
+app.use('/api/water-management', waterManagementRoutes);
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
