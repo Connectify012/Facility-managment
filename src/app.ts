@@ -132,6 +132,22 @@ app.use('/api/weekoff-planners', weekoffPlannerRoutes);
 import leavePlannerRoutes from './routes/leavePlanner.routes';
 app.use('/api/leave-planners', leavePlannerRoutes);
 
+// Import and register hygiene section routes
+import hygieneSectionRoutes from './routes/hygieneSection.routes';
+app.use('/api/hygiene-sections', hygieneSectionRoutes);
+
+// Import and register hygiene checklist routes
+import hygieneChecklistRoutes from './routes/hygieneChecklist.routes';
+app.use('/api/hygiene-checklists', hygieneChecklistRoutes);
+
+// Import and register daily checklist routes
+import dailyChecklistRoutes from './routes/dailyChecklist.routes';
+app.use('/api/daily-checklists', dailyChecklistRoutes);
+
+// Import and register floor location routes
+import floorLocationRoutes from './routes/floorLocation.routes';
+app.use('/api/floor-locations', floorLocationRoutes);
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
