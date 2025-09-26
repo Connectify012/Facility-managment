@@ -12,9 +12,10 @@ import authRoutes from './routes/auth.routes';
 import employeeRoutes from './routes/employee.routes';
 import facilityDetailsRoutes from './routes/facilityDetails.routes';
 import iotServiceManagementRoutes from './routes/iotServiceManagement.routes';
+import rosterRoutes from './routes/roster.routes';
 import serviceManagementRoutes from './routes/serviceManagement.routes';
 import serviceProviderRoutes from './routes/serviceProvider.routes';
-import userRoutes from './routes/user.routes';
+import shiftScheduleRoutes from './routes/shiftSchedule.routes';
 
 import { setupSwagger } from './utils/swagger';
 
@@ -24,8 +25,11 @@ handleUnhandledRejection();
 
 const app = express();
 
+
 // Trust proxy for rate limiting
 app.set('trust proxy', 1);
+
+
 
 // Security Middleware
 app.use(helmet({
@@ -116,7 +120,9 @@ app.use('/api/facilities', facilityDetailsRoutes);
 app.use('/api/service-management', serviceManagementRoutes);
 app.use('/api/service-providers', serviceProviderRoutes);
 app.use('/api/iot-service-management', iotServiceManagementRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/shift-schedules', shiftScheduleRoutes);
+
+app.use('/api/rosters', rosterRoutes);
 
 // Error handling
 app.use(notFoundHandler);
