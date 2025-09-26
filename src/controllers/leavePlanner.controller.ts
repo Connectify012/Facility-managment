@@ -1,6 +1,6 @@
 import { NextFunction, Response } from 'express';
-import { AppError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { AppError } from '../middleware/errorHandler';
 import { LeavePlanner } from '../models/LeavePlanner';
 import { UserRole } from '../models/User';
 import { validateObjectId } from '../utils/validation';
