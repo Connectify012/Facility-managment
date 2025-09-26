@@ -156,6 +156,10 @@ app.use('/api/power-management', powerManagementRoutes);
 import waterManagementRoutes from './routes/waterManagement.routes';
 app.use('/api/water-management', waterManagementRoutes);
 
+// Import and register quality management routes
+import qualityManagementRoutes from './routes/qualityManagement.routes';
+app.use('/api/quality-management', qualityManagementRoutes);
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
