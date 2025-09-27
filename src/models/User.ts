@@ -120,6 +120,7 @@ export interface IUserProfile {
   confirmationDate?: Date;
   terminationDate?: Date;
   lastWorkingDay?: Date;
+  exitReason?: string;
   noticePeriod?: number; // in days
   
   // Compensation & Benefits
@@ -856,6 +857,9 @@ UserSchema.methods.terminateEmployee = async function(
   this.profile.employmentStatus = EmploymentStatus.TERMINATED;
   this.profile.terminationDate = terminationDate;
   this.profile.lastWorkingDay = lastWorkingDay;
+  if (reason) {
+    this.profile.exitReason = reason;
+  }
   this.status = UserStatus.INACTIVE;
   
   await this.save();

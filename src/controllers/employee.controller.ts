@@ -339,15 +339,25 @@ export class EmployeeController {
     }
   }
 
-  // Delete employee (soft delete)
+  // Delete employee (soft delete) with exit details
   static async deleteEmployee(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
+      const { exitDate, exitReason } = req.body;
       const currentUser = req.user;
 
       // Validate ObjectId
       if (!validateObjectId(id)) {
         return next(new AppError('Invalid employee ID format', 400));
+      }
+
+      // Validate required exit fields
+      if (!exitDate) {
+        return next(new AppError('Exit date is required', 400));
+      }
+
+      if (!exitReason || exitReason.trim().length === 0) {
+        return next(new AppError('Exit reason is required', 400));
       }
 
       // Check if employee exists and is not already deleted
@@ -360,6 +370,16 @@ export class EmployeeController {
       if (!employee) {
         return next(new AppError('Employee not found', 404));
       }
+
+      const exitDateObj = new Date(exitDate);
+      
+      // Validate exit date is not in the future
+      if (exitDateObj > new Date()) {
+        return next(new AppError('Exit date cannot be in the future', 400));
+      }
+
+      // Use the terminateEmployee method to properly set termination details
+      await employee.terminateEmployee(exitDateObj, exitDateObj, exitReason.trim());
 
       // Soft delete
       const deleteData: any = {
@@ -375,7 +395,7 @@ export class EmployeeController {
 
       await User.findByIdAndUpdate(id, deleteData);
 
-      logger.info(`Employee deleted successfully: ${id} by ${currentUser?._id || 'system'}`);
+      logger.info(`Employee deleted successfully: ${id} by ${currentUser?._id || 'system'}, Exit Date: ${exitDate}, Reason: ${exitReason}`);
 
       res.status(200).json({
         status: 'success',
@@ -736,6 +756,57 @@ export class EmployeeController {
     } catch (error: any) {
       logger.error('Error retrieving employees by facility:', error);
       return next(new AppError('Error retrieving employees by facility', 500));
+    }
+  }
+
+  // Get employee exit details
+  static async getEmployeeExitDetails(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // Validate ObjectId
+      if (!validateObjectId(id)) {
+        return next(new AppError('Invalid employee ID format', 400));
+      }
+
+      // Find employee including deleted ones to get exit details
+      const employee = await User.findOne({ 
+        _id: id, 
+        role: { $nin: [UserRole.SUPER_ADMIN, UserRole.ADMIN] }
+      }).select('firstName lastName email profile.terminationDate profile.lastWorkingDay profile.exitReason profile.employmentStatus isDeleted deletedAt deletedBy');
+
+      if (!employee) {
+        return next(new AppError('Employee not found', 404));
+      }
+
+      // Check if employee has exit details
+      if (!employee.isDeleted && !employee.profile?.terminationDate) {
+        return next(new AppError('Employee has not been terminated', 400));
+      }
+
+      const exitDetails = {
+        employeeId: employee._id,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        email: employee.email,
+        terminationDate: employee.profile?.terminationDate,
+        lastWorkingDay: employee.profile?.lastWorkingDay,
+        exitReason: employee.profile?.exitReason,
+        employmentStatus: employee.profile?.employmentStatus,
+        isDeleted: employee.isDeleted,
+        deletedAt: employee.deletedAt,
+        deletedBy: employee.deletedBy
+      };
+
+      logger.info(`Retrieved exit details for employee: ${id}`);
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Employee exit details retrieved successfully',
+        data: exitDetails
+      });
+    } catch (error: any) {
+      logger.error('Error retrieving employee exit details:', error);
+      return next(new AppError('Error retrieving employee exit details', 500));
     }
   }
 }

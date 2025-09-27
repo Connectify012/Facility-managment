@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { EmployeeController } from '../controllers/employee.controller';
 import { AuthMiddleware } from '../middleware/auth.middleware';
+import { validateDeleteEmployee } from '../validations/employee.validation';
 
 const router = Router();
 
@@ -412,7 +413,7 @@ router.put('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireOwnershipO
  * @swagger
  * /api/employees/{id}:
  *   delete:
- *     summary: Delete employee (soft delete)
+ *     summary: Delete employee (soft delete) with exit details
  *     tags: [Employee Management]
  *     security:
  *       - bearerAuth: []
@@ -423,6 +424,27 @@ router.put('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireOwnershipO
  *         schema:
  *           type: string
  *         description: Employee ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - exitDate
+ *               - exitReason
+ *             properties:
+ *               exitDate:
+ *                 type: string
+ *                 format: date
+ *                 example: "2024-01-15"
+ *                 description: Employee's exit date (cannot be in future)
+ *               exitReason:
+ *                 type: string
+ *                 minLength: 5
+ *                 maxLength: 500
+ *                 example: "Resignation - Better opportunity"
+ *                 description: Reason for employee exit
  *     responses:
  *       200:
  *         description: Employee deleted successfully
@@ -438,13 +460,13 @@ router.put('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireOwnershipO
  *                   type: string
  *                   example: Employee deleted successfully
  *       400:
- *         description: Invalid employee ID format
+ *         description: Validation error (Invalid employee ID, missing exit date/reason, or future exit date)
  *       404:
  *         description: Employee not found
  *       500:
  *         description: Internal server error
  */
-router.delete('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireSupervisor, EmployeeController.deleteEmployee);
+router.delete('/:id', AuthMiddleware.authenticate, AuthMiddleware.requireSupervisor, validateDeleteEmployee, EmployeeController.deleteEmployee);
 
 /**
  * @swagger
@@ -731,5 +753,76 @@ router.patch('/:id/password', AuthMiddleware.authenticate, AuthMiddleware.requir
  *         description: Internal server error
  */
 router.get('/facility/:facilityId', AuthMiddleware.authenticate, AuthMiddleware.requireManager, EmployeeController.getEmployeesByFacility);
+
+/**
+ * @swagger
+ * /api/employees/{id}/exit-details:
+ *   get:
+ *     summary: Get employee exit details
+ *     tags: [Employee Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Employee ID
+ *     responses:
+ *       200:
+ *         description: Employee exit details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Employee exit details retrieved successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     employeeId:
+ *                       type: string
+ *                     employeeName:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@company.com"
+ *                     terminationDate:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T00:00:00.000Z"
+ *                     lastWorkingDay:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T00:00:00.000Z"
+ *                     exitReason:
+ *                       type: string
+ *                       example: "Resignation - Better opportunity"
+ *                     employmentStatus:
+ *                       type: string
+ *                       example: terminated
+ *                     isDeleted:
+ *                       type: boolean
+ *                       example: true
+ *                     deletedAt:
+ *                       type: string
+ *                       format: date-time
+ *                     deletedBy:
+ *                       type: string
+ *       400:
+ *         description: Invalid employee ID or employee not terminated
+ *       404:
+ *         description: Employee not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:id/exit-details', AuthMiddleware.authenticate, EmployeeController.getEmployeeExitDetails);
 
 export default router;
